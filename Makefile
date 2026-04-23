@@ -9,11 +9,11 @@ OBJS = networks.o gethostbyname.o pollLib.o safeUtil.o
 
 all:   myClient myServer
 
-myClient: myClient.c $(OBJS)
-	$(CC) $(CFLAGS) -o myClient myClient.c  $(OBJS) $(LIBS)
+myClient: cclient.c $(OBJS)
+	$(CC) $(CFLAGS) -o cclient cclient.c  $(OBJS) $(LIBS)
 
-myServer: myServer.c $(OBJS)
-	$(CC) $(CFLAGS) -o myServer myServer.c $(OBJS) $(LIBS)
+myServer: server.c $(OBJS)
+	$(CC) $(CFLAGS) -o server server.c $(OBJS) $(LIBS)
 
 .c.o:
 	gcc -c $(CFLAGS) $< -o $@ $(LIBS)
@@ -22,7 +22,7 @@ cleano:
 	rm -f *.o
 
 clean:
-	rm -f myServer myClient *.o
+	rm -f server cclient *.o
 
 
 
