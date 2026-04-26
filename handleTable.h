@@ -17,9 +17,9 @@ const char *lookupHandle(int socketNumber); // searches table for handle given a
 
 int getHandleCount(void); // returns number of valid entires in the table
 
-int getHandleAtIndex(int index, char *outHandle, int *outSocket); 
 // used for %L to print each of the handle names
 // outHandle needs to be at least (HANDLE_NAME_MAX + 1) bytes
+int getHandleAtIndex(int index, char *outHandle, int *outSocket); 
 
 int getTableCapacity(void); // returns current table capacity to ensure out of bounds isn't done 
 
