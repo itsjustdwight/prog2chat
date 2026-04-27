@@ -42,6 +42,21 @@ void initHandleTable(void) {
     printf("HandleTable created (%p)\n", handleTable);
 }
 
+static void growTable(void) {
+    int oldCapacity = tableCapacity; // storing capacity before growth
+    int newCapacity = tableCapacity * 2; // doubling capacity for more space
+
+    handleTable = (HandleEntry *) srealloc(handleTable, newCapacity * sizeof(HandleEntry));
+    // dynamically allocate more space
+    // multiply by sizeof(HandleEntry) to get size in bytes according to struct
+  
+    for (int i = oldCapacity; i < newCapacity; i++) {
+        handleTable[i].validFlag = 0;
+    }
+    
+    tableCapacity = newCapacity; // update the new capacity to reflect from realloc
+}
+
 int addHandle(const char *handleName, int socketNumber) {
     if (handleName == NULL) { // validating handleName isn't NULL
 	return -1;
@@ -87,11 +102,6 @@ int addHandle(const char *handleName, int socketNumber) {
        
 
     return 0;
-}
-
-void growTable(void) {
-    int oldCapacity = tableCapacity; // storing capacity before growth
-    int newCapacity = tableCapacity * 2; // doubling capacity for more space 
 }
 
 void removeHandle(int socketNumber) {
