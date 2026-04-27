@@ -38,8 +38,6 @@ void initHandleTable(void) {
     handleTable = (HandleEntry *) sCalloc(INIT_TABLE_SIZE, sizeof(HandleEntry));
     tableCapacity = INIT_TABLE_SIZE; // setting upper bound for table, limit before reallocation
     tableCount = 0; // initialize count to zero, no clients intially
-
-    printf("HandleTable created (%p)\n", handleTable);
 }
 
 static void growTable(void) {
@@ -84,7 +82,7 @@ int addHandle(const char *handleName, int socketNumber) {
 
     int oldCapacity = 0; // storing old capacity temporarily to be used for resizing
 
-    if (foundEmptyIndex == -1) {
+    if (currSlotIndex == -1) {
 	oldCapacity = tableCapacity; // storing old capacity to be used later
         growTable(); // (private) helper to grow table when count = capacity
         currSlotIndex = oldCapacity; // pointing currSlotIndex to first slot of newly created space in table
@@ -132,7 +130,7 @@ int lookupSocket(const char *handleName) {
 
 const char *lookupHandle(int socketNumber) {
 
-    return NULL
+    return NULL;
 }
 
 int getHandleCount(void) {
