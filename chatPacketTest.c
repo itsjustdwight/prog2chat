@@ -57,37 +57,37 @@ int main(void) {
     /* handleOptionsPacket — flag + 1-byte length + handle bytes    */
     /* ============================================================ */
 
-    printf("===== handleOptionsPacket: flag-1 with 'alice' =====\n");
-    len = handleOptionsPacket(buffer, INIT_CONNECT_FLAG, "alice");
+    printf("===== handleOnlyPacket: flag-1 with 'alice' =====\n");
+    len = handleOnlyPacket(buffer, INIT_CONNECT_FLAG, "alice");
     printBuffer(buffer, len);
     /* Expected: 01 05 61 6c 69 63 65, total 7 bytes */
 
-    printf("===== handleOptionsPacket: flag-7 with 'bob' =====\n");
-    len = handleOptionsPacket(buffer, HANDLE_ERR_FLAG, "bob");
+    printf("===== handleOnlyPacket: flag-7 with 'bob' =====\n");
+    len = handleOnlyPacket(buffer, HANDLE_ERR_FLAG, "bob");
     printBuffer(buffer, len);
     /* Expected: 07 03 62 6f 62, total 5 bytes */
 
-    printf("===== handleOptionsPacket: flag-12 with 'carol' =====\n");
-    len = handleOptionsPacket(buffer, HANDLE_ITEM_FLAG, "carol");
+    printf("===== handleOnlyPacket: flag-12 with 'carol' =====\n");
+    len = handleOnlyPacket(buffer, HANDLE_ITEM_FLAG, "carol");
     printBuffer(buffer, len);
     /* Expected: 0c 05 63 61 72 6f 6c, total 7 bytes */
 
-    printf("===== handleOptionsPacket: empty handle (should fail) =====\n");
-    len = handleOptionsPacket(buffer, INIT_CONNECT_FLAG, "");
+    printf("===== handleOnlyPacket: empty handle (should fail) =====\n");
+    len = handleOnlyPacket(buffer, INIT_CONNECT_FLAG, "");
     printf("returned: %d (expected -1)\n\n", len);
 
-    printf("===== handleOptionsPacket: oversized handle (should fail) =====\n");
+    printf("===== handleOnlyPacket: oversized handle (should fail) =====\n");
     char tooLong[150];
     memset(tooLong, 'x', 149);
     tooLong[149] = '\0';
-    len = handleOptionsPacket(buffer, INIT_CONNECT_FLAG, tooLong);
+    len = handleOnlyPacket(buffer, INIT_CONNECT_FLAG, tooLong);
     printf("returned: %d (expected -1)\n\n", len);
 
-    printf("===== handleOptionsPacket: exactly 100-char handle (should succeed) =====\n");
+    printf("===== handleOnlyPacket: exactly 100-char handle (should succeed) =====\n");
     char maxHandle[101];
     memset(maxHandle, 'a', 100);
     maxHandle[100] = '\0';
-    len = handleOptionsPacket(buffer, INIT_CONNECT_FLAG, maxHandle);
+    len = handleOnlyPacket(buffer, INIT_CONNECT_FLAG, maxHandle);
     printf("returned: %d (expected 102)\n", len);
     printBuffer(buffer, len);
     /* Expected: byte 0 = 0x01 flag, byte 1 = 0x64 (100), then 100 'a's */
@@ -182,7 +182,7 @@ int main(void) {
     /* ============================================================ */
 
     printf("===== Round-trip: build flag-1 'alice', parse it back =====\n");
-    len = handleOptionsPacket(buffer, INIT_CONNECT_FLAG, "alice");
+    len = handleOnlyPacket(buffer, INIT_CONNECT_FLAG, "alice");
     printBuffer(buffer, len);
 
     uint8_t flag = getFlag(buffer);
