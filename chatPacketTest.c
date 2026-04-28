@@ -4,120 +4,223 @@
 #include <stdint.h>
 #include <string.h>
 #include <ctype.h>
+
 #include "chatPacket.h"
 #include "chatFlags.h"
 
 static void printBuffer(const uint8_t *buffer, int len) {
     if (len < 0) {
-	printf(" (function returned %d - error)\n", len);
-	return;
+        printf(" (function returned %d - error)\n\n", len);
+        return;
     }
     for (int i = 0; i < len; i++) {
-	uint8_t byte = buffer[i];
-	if (isprint(byte)) {
-	    printf(" [%2d] 0x%02x  '%c'\n", i, byte, byte);
-	}
-	else {
-	    printf(" [%2d] 0x%02x\n", i, byte);
-	}
+        uint8_t byte = buffer[i];
+        if (isprint(byte)) {
+            printf(" [%2d] 0x%02x  '%c'\n", i, byte, byte);
+        }
+        else {
+            printf(" [%2d] 0x%02x\n", i, byte);
+        }
     }
     printf(" total: %d bytes\n\n", len);
 }
 
 int main(void) {
-
     uint8_t buffer[1500];
-    int len; 
- 
+    int len;
+
+    /* ============================================================ */
+    /* chatHeaderPacket — flags 2, 3, 10, 13 (just the flag byte)   */
+    /* ============================================================ */
+
     printf("===== chatHeaderPacket: flag-2 (good connect) =====\n");
     len = chatHeaderPacket(buffer, GOOD_CONNECT_FLAG);
-    printBuffer(buffer, len); // expected = 02 (1 byte total)
+    printBuffer(buffer, len);
+    /* Expected: flag byte 0x02, total 1 byte */
 
-    printf("===== chatHeaderPacket: flag-3 (bad_connect) =====\n");
+    printf("===== chatHeaderPacket: flag-3 (bad connect) =====\n");
     len = chatHeaderPacket(buffer, BAD_CONNECT_FLAG);
-    printBuffer(buffer, len); // expected = 03 (1 byte total)
+    printBuffer(buffer, len);
+    /* Expected: flag byte 0x03, total 1 byte */
 
     printf("===== chatHeaderPacket: flag-10 (list request) =====\n");
     len = chatHeaderPacket(buffer, HANDLE_LIST_FLAG);
-    printBuffer(buffer, len); // expected = 0a (1 byte total)
+    printBuffer(buffer, len);
+    /* Expected: flag byte 0x0a, total 1 byte */
 
-    len = handleOptionsPacket(buffer, INIT_CONNECT_FLAG, "test1");
-    // expected = 01 05 61 6c 69 63 65 (7 bytes)
-    //            flag len a l i c e
-    
+    printf("===== chatHeaderPacket: flag-13 (list done) =====\n");
+    len = chatHeaderPacket(buffer, HANDLE_FINISH_FLAG);
+    printBuffer(buffer, len);
+    /* Expected: flag byte 0x0d, total 1 byte */
+
+    /* ============================================================ */
+    /* handleOptionsPacket — flag + 1-byte length + handle bytes    */
+    /* ============================================================ */
+
+    printf("===== handleOptionsPacket: flag-1 with 'alice' =====\n");
+    len = handleOptionsPacket(buffer, INIT_CONNECT_FLAG, "alice");
+    printBuffer(buffer, len);
+    /* Expected: 01 05 61 6c 69 63 65, total 7 bytes */
+
+    printf("===== handleOptionsPacket: flag-7 with 'bob' =====\n");
     len = handleOptionsPacket(buffer, HANDLE_ERR_FLAG, "bob");
-    // expected = 08 03 62 6f 62 (5 bytes)
-    //            flag len b o b
+    printBuffer(buffer, len);
+    /* Expected: 07 03 62 6f 62, total 5 bytes */
 
-
+    printf("===== handleOptionsPacket: flag-12 with 'carol' =====\n");
     len = handleOptionsPacket(buffer, HANDLE_ITEM_FLAG, "carol");
-    // expected = 0c 05 63 61 72 6f 6c (7 bytes)
-    //            flag len c a r o l
-    
+    printBuffer(buffer, len);
+    /* Expected: 0c 05 63 61 72 6f 6c, total 7 bytes */
 
-    int result = handleOptionsPacket(buffer, INIT_CONNECT_FLAG, "");
-    printf("empty handle result: %d (expected -1)\n", result);
+    printf("===== handleOptionsPacket: empty handle (should fail) =====\n");
+    len = handleOptionsPacket(buffer, INIT_CONNECT_FLAG, "");
+    printf("returned: %d (expected -1)\n\n", len);
 
+    printf("===== handleOptionsPacket: oversized handle (should fail) =====\n");
     char tooLong[150];
     memset(tooLong, 'x', 149);
     tooLong[149] = '\0';
-    result = handleOptionsPacket(buffer, INIT_CONNECT_FLAG, tooLong);
-    printf("oversized handle result: %d (expected -1)\n", result);
+    len = handleOptionsPacket(buffer, INIT_CONNECT_FLAG, tooLong);
+    printf("returned: %d (expected -1)\n\n", len);
 
+    printf("===== handleOptionsPacket: exactly 100-char handle (should succeed) =====\n");
+    char maxHandle[101];
+    memset(maxHandle, 'a', 100);
+    maxHandle[100] = '\0';
+    len = handleOptionsPacket(buffer, INIT_CONNECT_FLAG, maxHandle);
+    printf("returned: %d (expected 102)\n", len);
+    printBuffer(buffer, len);
+    /* Expected: byte 0 = 0x01 flag, byte 1 = 0x64 (100), then 100 'a's */
 
-    char max[101];
-    memset(max, 'a', 100);
-    max[100] = '\0';
-    result = handleOptionsPacket(buffer, INIT_CONNECT_FLAG, max);
-    printf("max-length handle result: %d (expected 102)\n", result);
-    // first two bytes should be: 01 64 (flag = 1, length = 100)
-    printBuffer(buffer, result);
+    /* ============================================================ */
+    /* listCountPacket — flag + 4-byte count in network byte order  */
+    /* ============================================================ */
 
+    printf("===== listCountPacket: count = 0 =====\n");
     len = listCountPacket(buffer, 0);
-    // expected = 0b 00 00 00 (5 bytes)
-    //            flag, then 4 zero bytes
+    printBuffer(buffer, len);
+    /* Expected: 0b 00 00 00 00, total 5 bytes */
 
+    printf("===== listCountPacket: count = 1 =====\n");
     len = listCountPacket(buffer, 1);
-    // expected = 0b 00 00 00 01 (5 bytes)
-    //            flag, then 1 in network/big-endian order
+    printBuffer(buffer, len);
+    /* Expected: 0b 00 00 00 01, total 5 bytes */
 
+    printf("===== listCountPacket: count = 256 =====\n");
     len = listCountPacket(buffer, 256);
-    // expected = 0b 00 00 01 00 (5 bytes)
-    //            256 = 0x00000100 in network order
+    printBuffer(buffer, len);
+    /* Expected: 0b 00 00 01 00, total 5 bytes */
 
+    printf("===== listCountPacket: count = 0x12345678 (network order check) =====\n");
     len = listCountPacket(buffer, 0x12345678);
-    // expected = 0b 12 34 56 78 (5 bytes)
-    //            verifies high byte first, low byte last
+    printBuffer(buffer, len);
+    /* Expected: 0b 12 34 56 78, total 5 bytes
+       If you see "0b 78 56 34 12", htonl is missing/broken. */
 
+    /* ============================================================ */
+    /* broadcastPacket — flag + srclen + src + null-term text       */
+    /* ============================================================ */
+
+    printf("===== broadcastPacket: 'alice' broadcasts 'hello' =====\n");
     len = broadcastPacket(buffer, "alice", "hello", 6);
-    // expected = 04 05 61 69 63 65 68 65 6c 6c 6f 00 (13 bytes)
-    //            flag len a l i c e h e l l o null
-    
-    len = broadcastPacket(buffer, "alice", "", 1);
-    // expected = 04 05 61 6c 69 63 65 00 (8 bytes)
-    
-    const char *dsts[] = {"bob"};
-    len = messagePacket(buffer, UNICAST_FLAG, "alice", dsts, 1, "hello", 6);
-    // expected = 05 05 61 6c 69 63 65 01 03 62 6f 62 68 65 6c 6c 6f 00
-    //            flag srclen "alice" dstcount dstlen "bob" "hello\0"
-    //                         (5)    (1)             (3)
-    
-    const char *dsts2[] = {"bob", "carol", "dave"};
-    len = messagePacket(buffer, MULTICAST_FLAG, "alice", dsts2, 3, "hi", 3);
-    // expected = 06 05 alice 03 03 bob 05 carol 04 dave 'h' 'i' 0
-    //            flag srclen=5 dstcount=3
-    
-    uint8_t buffer[64];
-    int len = handleOptionsPacket(buffer, INIT_CONNECT_FLAG, "alice");
+    printBuffer(buffer, len);
+    /* Expected: 04 05 'alice' 'hello' 00, total 13 bytes */
 
-    // parse it back
+    printf("===== broadcastPacket: 'alice' broadcasts empty text =====\n");
+    len = broadcastPacket(buffer, "alice", "", 1);
+    printBuffer(buffer, len);
+    /* Expected: 04 05 'alice' 00, total 8 bytes */
+
+    printf("===== broadcastPacket: empty src handle (should fail) =====\n");
+    len = broadcastPacket(buffer, "", "hello", 6);
+    printf("returned: %d (expected -1)\n\n", len);
+
+    printf("===== broadcastPacket: text too long (should fail) =====\n");
+    char longText[300];
+    memset(longText, 'x', 299);
+    longText[299] = '\0';
+    len = broadcastPacket(buffer, "alice", longText, 300);
+    printf("returned: %d (expected -1)\n\n", len);
+
+    /* ============================================================ */
+    /* messagePacket — flag + srclen + src + dstcount + dsts + text */
+    /* ============================================================ */
+
+    printf("===== messagePacket: %%M from 'alice' to 'bob' saying 'hello' =====\n");
+    const char *dstSingle[] = {"bob"};
+    len = messagePacket(buffer, UNICAST_FLAG, "alice", dstSingle, 1, "hello", 6);
+    printBuffer(buffer, len);
+    /* Expected: 05 05 'alice' 01 03 'bob' 'hello' 00, total 18 bytes */
+
+    printf("===== messagePacket: %%C from 'alice' to 3 dests saying 'hi' =====\n");
+    const char *dstMulti[] = {"bob", "carol", "dave"};
+    len = messagePacket(buffer, MULTICAST_FLAG, "alice", dstMulti, 3, "hi", 3);
+    printBuffer(buffer, len);
+    /* Expected: 06 05 'alice' 03 03 'bob' 05 'carol' 04 'dave' 'hi' 00,
+       total 26 bytes */
+
+    printf("===== messagePacket: numDst = 0 (should fail) =====\n");
+    len = messagePacket(buffer, MULTICAST_FLAG, "alice", dstMulti, 0, "hi", 3);
+    printf("returned: %d (expected -1)\n\n", len);
+
+    printf("===== messagePacket: numDst = 10 (should fail) =====\n");
+    const char *dstTooMany[] = {"a","b","c","d","e","f","g","h","i","j"};
+    len = messagePacket(buffer, MULTICAST_FLAG, "alice", dstTooMany, 10, "hi", 3);
+    printf("returned: %d (expected -1)\n\n", len);
+
+    printf("===== messagePacket: empty src handle (should fail) =====\n");
+    len = messagePacket(buffer, UNICAST_FLAG, "", dstSingle, 1, "hi", 3);
+    printf("returned: %d (expected -1)\n\n", len);
+
+    printf("===== messagePacket: empty dst handle (should fail) =====\n");
+    const char *dstEmpty[] = {""};
+    len = messagePacket(buffer, UNICAST_FLAG, "alice", dstEmpty, 1, "hi", 3);
+    printf("returned: %d (expected -1)\n\n", len);
+
+    /* ============================================================ */
+    /* Round-trip parser test: handleOptionsPacket                  */
+    /* ============================================================ */
+
+    printf("===== Round-trip: build flag-1 'alice', parse it back =====\n");
+    len = handleOptionsPacket(buffer, INIT_CONNECT_FLAG, "alice");
+    printBuffer(buffer, len);
+
     uint8_t flag = getFlag(buffer);
     char outName[101];
     int newOffset = getHandleAt(buffer, 1, outName);
+    printf("parsed flag:    %d (expected 1)\n", flag);
+    printf("parsed handle:  '%s' (expected 'alice')\n", outName);
+    printf("ending offset:  %d (expected %d)\n\n", newOffset, len);
 
-    printf("parsed flag: %d (expected 1)\n", flag);
-    printf("parsed handle: %s (expected alice)\n", outName);
-    printf("new offset: %d (expected %d)\n", newOffset, len);
+    /* ============================================================ */
+    /* Round-trip parser test: messagePacket with multiple dests    */
+    /* ============================================================ */
+
+    printf("===== Round-trip: build %%C alice -> bob,carol,dave 'hi', parse it back =====\n");
+    len = messagePacket(buffer, MULTICAST_FLAG, "alice", dstMulti, 3, "hi", 3);
+    printBuffer(buffer, len);
+
+    flag = getFlag(buffer);
+    printf("parsed flag: %d (expected 6)\n", flag);
+
+    char src[101], d1[101], d2[101], d3[101];
+    int off = 1;  /* skip flag byte */
+    off = getHandleAt(buffer, off, src);
+    printf("src handle:  '%s' (expected 'alice'), offset now %d\n", src, off);
+
+    uint8_t numDst = buffer[off++];
+    printf("numDst:      %d (expected 3), offset now %d\n", numDst, off);
+
+    off = getHandleAt(buffer, off, d1);
+    printf("dst1:        '%s' (expected 'bob'),   offset now %d\n", d1, off);
+    off = getHandleAt(buffer, off, d2);
+    printf("dst2:        '%s' (expected 'carol'), offset now %d\n", d2, off);
+    off = getHandleAt(buffer, off, d3);
+    printf("dst3:        '%s' (expected 'dave'),  offset now %d\n", d3, off);
+
+    const char *parsedText = (const char *)(buffer + off);
+    printf("text:        '%s' (expected 'hi')\n", parsedText);
+    printf("final offset: %d (expected %d)\n\n", off + (int)strlen(parsedText) + 1, len);
 
     return 0;
 }
