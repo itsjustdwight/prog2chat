@@ -12,6 +12,23 @@
 /*-----------> Function Definitions <-----------*/
 
 // builder packet functions
+
+int handleOptionsPacket(uint8_t *buffer, uint8_t flag, const char *srcHandle) {
+    uint8_t handleLen = strlen(srcHandle); // computing handle len from the source handle, starting @ offset 1
+    if (handleLen < 1 || handleLen > 100) {
+        return -1;
+    }
+
+    int offset = 0; // creating offset to be used to index through buffer
+    buffer[offset++] = flag; // setting byte 1 of buffer to input flag
+
+    buffer[offset++] = handleLen; // starting at byte 2, reading length of input handle
+
+    memcpy(buffer + offset, srcHandle, handleLen); // copy srcHandle into buffer starting at byte 3
+
+    return 2 + handleLen;
+}
+
 int initConnectPacket(uint8_t *buffer, const char *srcHandle) { // packet builder for flag 1
     uint8_t handleLen = strlen(srcHandle); // computing handle len from the source handle, starting @ offset 1
     if (handleLen < 1 || handleLen > 100) {
