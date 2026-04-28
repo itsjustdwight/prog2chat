@@ -36,16 +36,17 @@ int chatHeaderPacket(uint8_t *buffer, uint8_t flag) { // packet builder for flag
 
 int messagePacket(uint8_t *buffer, uint8_t flag, const char *srcHandle, const char *dstHandles[], 
                   int numOfDst, const char *text, int textLen) { // packet builder for flags 5 (%M) & 6 (%C)
+    uint8_t handleLen = strlen(srcHandle);
     if (numOfDst < 1 || numOfDst > 9) {
 	return -1;
     }
 
-    if (strlen(srcHandle) > 100) {
+    if (strlen(srcHandle) < 1 || strlen(srcHandle) > 100) {
 	return -1;
     }
 
     for (int i = 0; i < numOfDst; i++) {
-	if (strlen(dstHandles[i]) > 100) {
+	if (strlen(dstHandles[i]) < 1 || strlen(dstHandles[i]) > 100) {
 	    return -1;
 	}
     }
@@ -60,7 +61,7 @@ int messagePacket(uint8_t *buffer, uint8_t flag, const char *srcHandle, const ch
     memcpy(buffer + offset, srcHandle, handleLen);
     offset += handleLen;
     buffer[offset++] = numOfDst;
-    buffer += 1;
+    
     for (int i = 0; i < numOfDst; i++) {
 	uint8_t dhl = strlen(dstHandles[i]);
 	buffer[offset++] = dhl;
@@ -69,16 +70,16 @@ int messagePacket(uint8_t *buffer, uint8_t flag, const char *srcHandle, const ch
     }
 
     memcpy(buffer + offset, text, textLen);
-    textLen = strlen(text) + 1;
-    offset += textLen 
+    offset += textLen; 
 
-    return offset
+    return offset;
 }
 
 int broadcastPacket(uint8_t *buffer, const char *srcHandle, const char *text, 
                     int textLen) { // packet builder for flag 4
 
-    if (strlen(srcHandle) > 100) {
+    uint8_t handleLen = strlen(srcHandle);
+    if (strlen(srcHandle) < 1 || strlen(srcHandle) > 100) {
         return -1;
     }
 
@@ -87,17 +88,15 @@ int broadcastPacket(uint8_t *buffer, const char *srcHandle, const char *text,
     }
 
     int offset = 0; // creating offset to be used to index into buffer
-    buffer[offset++] = flag; // setting flag byte at offset 0
+    buffer[offset++] = BROADCAST_FLAG; // setting flag byte at offset 0
     buffer[offset++] = handleLen; // setting srcHandle's length starting at offset 1
     memcpy(buffer + offset, srcHandle, handleLen);
     offset += handleLen;
-    buffer += 1;
 
     memcpy(buffer + offset, text, textLen);
-    textLen = strlen(text) + 1;
-    offset += textLen
+    offset += textLen;
 
-    return offset
+    return offset;
 }
 
 int notFoundPacket(uint8_t *buffer, const char *unknownHandle) { // packet builder for flag 7
