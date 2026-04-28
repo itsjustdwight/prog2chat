@@ -29,22 +29,6 @@ int handleOptionsPacket(uint8_t *buffer, uint8_t flag, const char *srcHandle) {
     return 2 + handleLen;
 }
 
-int initConnectPacket(uint8_t *buffer, const char *srcHandle) { // packet builder for flag 1
-    uint8_t handleLen = strlen(srcHandle); // computing handle len from the source handle, starting @ offset 1
-    if (handleLen < 1 || handleLen > 100) {
-	return -1;
-    }
-    
-    int offset = 0; // creating offset to be used to index through buffer
-    buffer[offset++] = INIT_CONNECT_FLAG; // setting byte one of buffer to flag 1
- 
-    buffer[offset++] = handleLen; // now starting at the payload
-
-    memcpy(buffer + offset, srcHandle, handleLen);
-
-    return 2 + handleLen;
-}
-
 int chatHeaderPacket(uint8_t *buffer, uint8_t flag) { // packet builder for flags 2, 3, 10, and 13
     buffer[0] = flag; // setting flag byte at offset 0
 
@@ -53,7 +37,6 @@ int chatHeaderPacket(uint8_t *buffer, uint8_t flag) { // packet builder for flag
 
 int messagePacket(uint8_t *buffer, uint8_t flag, const char *srcHandle, const char *dstHandles[], 
                   int numOfDst, const char *text, int textLen) { // packet builder for flags 5 (%M) & 6 (%C)
-    uint8_t handleLen = strlen(srcHandle);
     if (numOfDst < 1 || numOfDst > 9) {
 	return -1;
     }
@@ -70,7 +53,9 @@ int messagePacket(uint8_t *buffer, uint8_t flag, const char *srcHandle, const ch
 
     if (textLen > TEXT_LEN_MAX) {
 	return -1;
-    } 
+    }
+
+    uint8_t handleLen = strlen(srcHandle); 
     
     int offset = 0; // creating offset to be used to index into buffer
     buffer[offset++] = flag; // setting flag byte at offset 0
@@ -95,7 +80,6 @@ int messagePacket(uint8_t *buffer, uint8_t flag, const char *srcHandle, const ch
 int broadcastPacket(uint8_t *buffer, const char *srcHandle, const char *text, 
                     int textLen) { // packet builder for flag 4
 
-    uint8_t handleLen = strlen(srcHandle);
     if (strlen(srcHandle) < 1 || strlen(srcHandle) > 100) {
         return -1;
     }
@@ -103,6 +87,8 @@ int broadcastPacket(uint8_t *buffer, const char *srcHandle, const char *text,
     if (textLen > TEXT_LEN_MAX) {
         return -1;
     }
+    
+    uint8_t handleLen = strlen(srcHandle);
 
     int offset = 0; // creating offset to be used to index into buffer
     buffer[offset++] = BROADCAST_FLAG; // setting flag byte at offset 0
@@ -116,22 +102,6 @@ int broadcastPacket(uint8_t *buffer, const char *srcHandle, const char *text,
     return offset;
 }
 
-int notFoundPacket(uint8_t *buffer, const char *unknownHandle) { // packet builder for flag 7
-    uint8_t handleLen = strlen(unknownHandle); // computing handle len from the source handle, starting @ offset 1
-    if (handleLen < 1 || handleLen > 100) {
-        return -1;
-    }
-
-    int offset = 0;
-    buffer[offset++] = HANDLE_ERR_FLAG; // setting byte one of buffer to flag 7
-
-    buffer[offset++] = handleLen; // setting byte 1 of buffer to the length of handle name
-
-    memcpy(buffer + offset, unknownHandle, handleLen);
-
-    return 2 + handleLen;
-}
-
 
 int listCountPacket(uint8_t *buffer, uint32_t count) { // packet builder for flag 11
     int offset = 0;
@@ -141,22 +111,6 @@ int listCountPacket(uint8_t *buffer, uint32_t count) { // packet builder for fla
     memcpy(buffer + offset, &netOrderCount, 4);
 
     return 5;
-}
-
-int listHandlePacket(uint8_t *buffer, const char *handle) { // packet builder for flag 12
-    uint8_t handleLen = strlen(handle); // computing handle len from the source handle, starting @ offset 1
-    if (handleLen < 1 || handleLen > 100) {
-        return -1;
-    }
-
-    int offset = 0;
-    buffer[offset++] = HANDLE_ITEM_FLAG; // setting byte one of buffer to flag 12
-
-    buffer[offset++] = handleLen; // setting byte 1 of buffer to the length of handle name
-
-    memcpy(buffer + offset, handle, handleLen);
-
-    return 2 + handleLen;   
 }
 
 // parser packet functions

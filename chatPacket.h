@@ -9,9 +9,7 @@
 
 /*-----------> Function Prototypes <-----------*/
 
-int handleOptionsPacket(uint8_t *buffer, uint8_t flag, const char *srcHandle);
-
-int initConnectPacket(uint8_t *buffer, const char *srcHandle);
+int handleOnlyPacket(uint8_t *buffer, uint8_t flag, const char *srcHandle);
 
 int chatHeaderPacket(uint8_t *buffer, uint8_t flag);
 
@@ -20,13 +18,9 @@ int messagePacket(uint8_t *buffer, uint8_t flag, const char *srcHandle, const ch
 
 int broadcastPacket(uint8_t *buffer, const char *srcHandle, const char *text, int textLen);
 
-int notFoundPacket(uint8_t *buffer, const char *unknownHandle);
-
 int listCountPacket(uint8_t *buffer, uint32_t count);
 
-int listHandlePacket(uint8_t *buffer, const char *handle);
-
-int getFlag(const uint8_t *pdu);
+uint8_t getFlag(const uint8_t *pdu);
 
 int getHandleAt(const uint8_t *pdu, int offset, char *outHandle); 
 
