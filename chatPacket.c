@@ -17,12 +17,13 @@ int initConnectPacket(uint8_t *buffer, const char *srcHandle) { // packet builde
     if (handleLen < 1 || handleLen > 100) {
 	return -1;
     }
-
-    buffer[0] = INIT_CONNECT_FLAG; // setting byte one of buffer to flag 1
+    
+    int offset = 0; // creating offset to be used to index through buffer
+    buffer[offset++] = INIT_CONNECT_FLAG; // setting byte one of buffer to flag 1
  
-    handleLen = buffer + 1; // now starting at the payload
+    buffer[offset++] = handleLen; // now starting at the payload
 
-    memcpy(buffer + 2, srcHandle, sizeOf(srcHandle));
+    memcpy(buffer + offset, srcHandle, handleLen);
 
     return 2 + handleLen;
 }
@@ -43,32 +44,60 @@ int messagePacket(uint8_t *buffer, uint8_t flag, const char *srcHandle, const ch
 	return -1;
     }
 
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < numOfDst; i++) {
 	if (strlen(dstHandles[i]) > 100) {
 	    return -1;
 	}
     }
 
-    if (text > TEXT_LEN_MAX) {
+    if (textLen > TEXT_LEN_MAX) {
 	return -1;
     } 
-
-    buffer[0] = flag; // setting flag byte at offset 0
-    buffer + 1 = strlen(srcHandle); // setting srcHandle's length starting at offset 1
-    memcpy(buffer + 2, srcHandle, sizeOf(srcHandle));
-    buffer += strlen(srcHandle);
-    buffer = numOfDst;
+    
+    int offset = 0; // creating offset to be used to index into buffer
+    buffer[offset++] = flag; // setting flag byte at offset 0
+    buffer[offset++] = handleLen; // setting srcHandle's length starting at offset 1
+    memcpy(buffer + offset, srcHandle, handleLen);
+    offset += handleLen;
+    buffer[offset++] = numOfDst;
     buffer += 1;
-    for (int i = 0; i < sizeOf(dstHandles); i++) {
-	uint8_t dhl = atoi(dstHandles[i]);
-	
+    for (int i = 0; i < numOfDst; i++) {
+	uint8_t dhl = strlen(dstHandles[i]);
+	buffer[offset++] = dhl;
+	memcpy(buffer + offset, dstHandles[i], dhl);
+	offset += dhl;	
     }
 
+    memcpy(buffer + offset, text, textLen);
+    textLen = strlen(text) + 1;
+    offset += textLen 
+
+    return offset
 }
 
 int broadcastPacket(uint8_t *buffer, const char *srcHandle, const char *text, 
                     int textLen) { // packet builder for flag 4
 
+    if (strlen(srcHandle) > 100) {
+        return -1;
+    }
+
+    if (textLen > TEXT_LEN_MAX) {
+        return -1;
+    }
+
+    int offset = 0; // creating offset to be used to index into buffer
+    buffer[offset++] = flag; // setting flag byte at offset 0
+    buffer[offset++] = handleLen; // setting srcHandle's length starting at offset 1
+    memcpy(buffer + offset, srcHandle, handleLen);
+    offset += handleLen;
+    buffer += 1;
+
+    memcpy(buffer + offset, text, textLen);
+    textLen = strlen(text) + 1;
+    offset += textLen
+
+    return offset
 }
 
 int notFoundPacket(uint8_t *buffer, const char *unknownHandle) { // packet builder for flag 7
@@ -77,21 +106,23 @@ int notFoundPacket(uint8_t *buffer, const char *unknownHandle) { // packet build
         return -1;
     }
 
-    buffer[0] = HANDLE_ERR_FLAG; // setting byte one of buffer to flag 1
+    int offset = 0;
+    buffer[offset++] = HANDLE_ERR_FLAG; // setting byte one of buffer to flag 7
 
-    handleLen = buffer + 1; // now starting at the payload
+    buffer[offset++] = handleLen; // setting byte 1 of buffer to the length of handle name
 
-    memcpy(buffer + 2, unknownHandle, sizeOf(unknownHandle));
+    memcpy(buffer + offset, unknownHandle, handleLen);
 
     return 2 + handleLen;
 }
 
 
 int listCountPacket(uint8_t *buffer, uint32_t count) { // packet builder for flag 11
-    buffer[0] = HANDLE_LIST_RESP_FLAG; // setting flag byte to offset 0
+    int offset = 0;
+    buffer[offset++] = HANDLE_LIST_RESP_FLAG; // setting flag byte to offset 0
 
     uint32_t netOrderCount = htonl(count); // converting count to network order
-    memcpy(buffer + 1, &netOrderCount, 4);
+    memcpy(buffer + offset, &netOrderCount, 4);
 
     return 5;
 }
@@ -102,17 +133,18 @@ int listHandlePacket(uint8_t *buffer, const char *handle) { // packet builder fo
         return -1;
     }
 
-    buffer[0] = HANDLE_ITEM_FLAG; // setting byte one of buffer to flag 1
+    int offset = 0;
+    buffer[offset++] = HANDLE_ITEM_FLAG; // setting byte one of buffer to flag 12
 
-    handleLen = buffer + 1; // now starting at the payload
+    buffer[offset++] = handleLen; // setting byte 1 of buffer to the length of handle name
 
-    memcpy(buffer + 2, handle, sizeOf(handle));
+    memcpy(buffer + offset, handle, handleLen);
 
     return 2 + handleLen;   
 }
 
 // parser packet functions
-int getFlag(const uint8_t *pdu) {
+uint8_t getFlag(const uint8_t *pdu) {
     return pdu[0]; // flag is always the first byte of buffer
 }
 
