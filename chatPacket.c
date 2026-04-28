@@ -12,8 +12,7 @@
 /*-----------> Function Definitions <-----------*/
 
 // builder packet functions
-
-int handleOnlyPacket(uint8_t *buffer, uint8_t flag, const char *srcHandle) {
+int handleOnlyPacket(uint8_t *buffer, uint8_t flag, const char *srcHandle) { // packet builder for flags 1, 7, and 12
     uint8_t handleLen = strlen(srcHandle); // computing handle len from the source handle, starting @ offset 1
     if (handleLen < 1 || handleLen > 100) {
         return -1;
