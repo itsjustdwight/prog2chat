@@ -26,13 +26,19 @@ static void printBuffer(const uint8_t *buffer, int len) {
 
 int main(void) {
 
-    uint8_t buffer[16];
-    int len = chatHeaderPacket(buffer, INIT_CONNECT_FLAG);
-    printf("flag-2 packet: ");
+    uint8_t buffer[1500];
+    int len; 
+ 
+    printf("===== chatHeaderPacket: flag-2 (good connect) =====\n");
+    len = chatHeaderPacket(buffer, GOOD_CONNECT_FLAG);
     printBuffer(buffer, len); // expected = 02 (1 byte total)
 
+    printf("===== chatHeaderPacket: flag-3 (bad_connect) =====\n");
+    len = chatHeaderPacket(buffer, BAD_CONNECT_FLAG);
+    printBuffer(buffer, len); // expected = 03 (1 byte total)
+
+    printf("===== chatHeaderPacket: flag-10 (list request) =====\n");
     len = chatHeaderPacket(buffer, HANDLE_LIST_FLAG);
-    printf("flag-10 packet: ");
     printBuffer(buffer, len); // expected = 0a (1 byte total)
 
     len = handleOptionsPacket(buffer, INIT_CONNECT_FLAG, "test1");
