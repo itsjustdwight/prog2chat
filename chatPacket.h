@@ -9,6 +9,8 @@
 
 /*-----------> Function Prototypes <-----------*/
 
+int handleOptionsPacket(uint8_t *buffer, uint8_t flag, const char *srcHandle);
+
 int initConnectPacket(uint8_t *buffer, const char *srcHandle);
 
 int chatHeaderPacket(uint8_t *buffer, uint8_t flag);
