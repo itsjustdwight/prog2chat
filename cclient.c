@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <ctype.h>
 #include <unistd.h>
 
 #include "networks.h"
@@ -23,6 +24,12 @@ void processStdin(int socketNumber);
 void processMsgFromServer(int socketNumber);
 int readFromStdin(uint8_t *buffer);
 void checkArgs(int argc, char *argv[]);
+
+// commmand handlers
+void sendBroadcast(int socketNumber, uint8_t *buffer, int len);
+void sendUnicast(int socketNumber, uint8_t *buffer, int len);
+void sendMulticast(int socketNumber, uint8_t *buffer, int len);
+void sendHandleList(int socketNumber);
 
 /*-----------> Main <-----------*/
 int main(int argc, char *argv[]) {
@@ -90,8 +97,97 @@ void processStdin(int socketNumber) {
     int sendLen = 0; // # of bytes read from stdin (including null)
 
     sendLen = readFromStdin(buffer); // prompts user and fills buffer
+    if (sendLen < 2) { // checking if enough args are given by user
+	printf("$: ");
+    }
 
+    if (buffer[0] != '%') { // checking if first char of command is typped correctly
+	printf("Invalid command\n");
+	printf("$: ");
+    }
+
+    int inputCommand = toLower(buffer[1]); // specifying the command user inputs, generalizing to lowercase
+
+    switch inputCommand:
+	case 'b':
+	    sendBroadcast(int socketNumber, uint8_t *buffer, int len);
+	case 'm':
+	    sendUnicast(int socketNumber, uint8_t *buffer, int len);
+	case 'c':
+	    sendMulticast(int socketNumber, uint8_t *buffer, int len);
+	case 'l':
+	    sendHandleList(int socketNumber);
+	default:
+	    printf("Invalid command\n");
+
+    printf("$: ");
     sendPDU(socketNumber, buffer, sendLen); // one send() of full PDU
+}
+
+/*-----------> sendBroadcast <-----------*/
+void sendBroadcast(int socketNumber, uint8_t *buffer, int len) {
+    int offset = 2; // setting offset to immediately get to dst-handle from command
+    if (isspace(buffer[offset]) == '\n') {
+	printf("Invalid command format\n");	
+    }
+
+    char dstHandle[101];
+    int dstLen = 0;
+    while (!isspace(buffer[offset]) && buffer[offset] != NULL) {
+	dstHandle[dstLen++] = line[offset++];
+	if (dstLen > 100) {
+	    printf("Invalid command format\n");
+	}
+    }
+
+    dstHandle[dstLen] = '\0';
+
+    if (dstLen == 0) {
+	printf("Invalide command format\n");
+    }
+
+    isspace(buffer[offset]);
+
+    char *text = &buffer[offset];
+    int totalTextLen = len - offset;
+    if (totalTextLen <= 0) {
+	totalTextLen = 1;
+    }
+
+    const char *dsts[1] = { dstHandle };
+
+    int sent = 0;
+    uint8_t pduBuffer[PDU_LEN_MAX];
+    char textChunkBuffer[TEXT_LEN_MAX];
+
+    while (sent < totalTextLen) {
+	int remaining = totalTextLen - sent;
+	int chunkSize = min(remining, TEXT_DATA_CHUNK)
+
+	memcpy(textChunkBuffer, text + sent, chunkSize);
+	textChunkBuffer[chunkSize] = '\0';
+
+	int packetLen = messagePacket(pduBuffer, UNITCAST_FLAG, myHandle, dsts,
+				      1, textChunkBuffer, chunkSize + 1);
+	sendPDU(socketNumber, pduBuffer, packetLen);
+
+	sent += chunkSize;
+    }
+}
+
+/*-----------> sendUnicast <-----------*/
+void sendUnicast(int socketNumber, uint8_t *buffer, int len) {
+
+}
+
+/*-----------> sendMulticast <-----------*/
+void sendMulticast(int socketNumber, uint8_t *buffer, int len) {
+
+}
+
+/*-----------> sendHandleList <-----------*/
+void sendHandleList(int socketNumber) {
+
 }
 
 /*-----------> processMsgFromServer <-----------*/
