@@ -65,7 +65,7 @@ void initConnectHandle(int socketNumber, const char *handle) {
 
     recvLen = recvPDU(socketNumber, respBuffer, sizeof(respBuffer));
     if (recvLen == 0) {
-	printf("Server terminated unintentionally\n");
+	printf("Server Terminated\n");
 	exit(1);
     }
     uint8_t flag = getFlag(respBuffer);
@@ -73,7 +73,7 @@ void initConnectHandle(int socketNumber, const char *handle) {
 	return;
     }
     if (flag == BAD_CONNECT_FLAG) {
-	printf("Handle already in use: <%s>\n", handle);
+	printf("Handle already in use: %s\n", handle);
 	exit(0);
     }
 
@@ -103,19 +103,17 @@ void processStdin(int socketNumber) {
 
     sendLen = readFromStdin(buffer); // prompts user and fills buffer
     if (sendLen < 2) { // checking if enough args are given by user
-	printf("$: ");
 	return;
     }
 
     if (buffer[0] != '%') { // checking if first char of command is typped correctly
 	printf("Invalid command\n");
-	printf("$: ");
 	return;
     }
 
     int inputCommand = tolower(buffer[1]); // specifying the command user inputs, generalizing to lowercase
 
-    switch (inputCommand):
+    switch (inputCommand) {
 	case 'b':
 	    sendBroadcast(socketNumber, buffer, sendLen);
 	    break;
@@ -131,8 +129,9 @@ void processStdin(int socketNumber) {
 	default:
 	    printf("Invalid command\n");
 	    break;
+    }
 
-    printf("$: ");
+    fflush(stdout);
 }
 
 /*-----------> sendBroadcast <-----------*/
@@ -143,7 +142,10 @@ void sendBroadcast(int socketNumber, uint8_t *buffer, int len) {
 /*-----------> sendUnicast <-----------*/
 void sendUnicast(int socketNumber, uint8_t *buffer, int len) {
     int offset = 2; // setting offset to immediately get to dst-handle from command
-    if (buffer[offset] == '\n') {
+    while (isspace(buffer[offset])) {
+	offset++;
+    }
+    if (buffer[offset] == '\0') {
         printf("Invalid command format\n");
 	return;
     }
@@ -169,10 +171,16 @@ void sendUnicast(int socketNumber, uint8_t *buffer, int len) {
 	offset++;
     }
 
-    char *text = &buffer[offset];
-    int totalTextLen = len - offset;
+    const char *text = (const char *)&buffer[offset];
+    int totalTextLen = len - offset - 1;
+    if (totalTextLen < 0) {
+	totalTextLen = 0;
+    }
     if (totalTextLen <= 0) {
-        totalTextLen = 1;
+        char emptyBuffer[1] = { '\0' };
+	int packetLen = messagePacket(pduBuffer, UNICAST_FLAG, myHandle, dsts, 1, emptyBuffer, 1);
+	sendPDU(socketNumber, pduBuffer, packetLen);
+	return;
     }
 
     const char *dsts[1] = { dstHandle };
@@ -230,7 +238,7 @@ int readFromStdin(uint8_t *buffer) {
     int inputLen = 0;
 
     buffer[0] = '\0'; // start with empty string
-    printf("Enter data: ");
+    printf("$: ");
     fflush(stdout); 
     while (inputLen < (PDU_LEN_MAX - 1) && aChar != '\n') {
 	aChar = getchar();
@@ -256,6 +264,7 @@ void checkArgs(int argc, char *argv[]) {
 	exit(1);
     }
     if (strlen(argv[1]) > HANDLE_NAME_MAX) {
-	fprintf(stderr, "Invalid handle, handle length longer than 100 characters: <%s>\n", argv[1]);
+	fprintf(stderr, "Invalid handle, handle length longer than 100 characters: %s\n", argv[1]);
+	exit(1);
     }
 }
