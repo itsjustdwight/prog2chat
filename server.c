@@ -110,8 +110,10 @@ void processClientPacket(int clientSocket) {
     }
 }
 
-// store client's handle, send flag 2 or flag 3
+/*-----------> flagConnect <-----------*/
 void flagConnect(uint8_t *pdu, int pduLen, int clientSocket) {
+// store client's handle, send flag 2 or flag 3
+
     char handleBuffer[HANDLE_NAME_MAX + 1]; // buffer to store the parsed handle name
     int result; // storing the result of addHandle output
     uint8_t respBuffer[8]; // buffer to build the response packet
@@ -132,25 +134,86 @@ void flagConnect(uint8_t *pdu, int pduLen, int clientSocket) {
     }
 }
 
-// send untouched PDU to all clients except for the sending client
+/*-----------> flagBroadcast <-----------*/
 void flagBroadcast(uint8_t *pdu, int pduLen, int clientSocket) {
+// send untouched PDU to all clients except for the sending client
 
 }
 
-// parse %M, send message to dest. or send flag 7 if client not found
+/*-----------> flagUnicast <-----------*/
 void flagUnicast(uint8_t *pdu, int pduLen, int clientSocket) {
+// parse %M, send message to dest. or send flag 7 if client not found
+    
+    char srcHandle[HANDLE_NAME_MAX + 1];
+    char dstHandle[HANDLE_NAME_MAX + 1];
+    int offset = 1; // skip flag byte
 
+    offset = getHandleAt(pdu, offset, srcHandle); // skip past src
+ 
+    offset++;
+
+    offset = getHandleAt(pdu, offset, dstHandle);
+
+    int dstSocketFD = lookupSocket(dstHandle);
+    if (dstSocketFD != -1) {
+	sendPDU(dstSocketFD, pdu, pduLen);
+    }
+    if (dstSocketFD == -1) {
+	uint8_t errorBuffer[PDU_LEN_MAX];
+	int errorLen = handleOnlyPacket(errorBuffer, HANDLE_ERR_FLAG, dstHandle);
+	sendPDU(clientSocket, errorBuffer, errorLen);
+    }
 }
 
-// parse %C, send message to each dest., send flag 7 for each client that's not found
+/*-----------> flagMulticast <-----------*/
 void flagMulticast(uint8_t *pdu, int pduLen, int clientSocket) {
+// parse %C, send message to each dest., send flag 7 for each client that's not found
+    char srcHandle[HANDLE_NAME_MAX + 1];
+    char dstHandle[HANDLE_NAME_MAX + 1];
+    int offset = 1; // skip flag byte
 
+    offset = getHandleAt(pdu, offset, srcHandle); // skip past src
+
+    uint8_t numOfDst = pdu[offset];
+    offset++;
+
+    for (int i = 0; i < numOfDst; i++) {
+    	offset = getHandleAt(pdu, offset, dstHandle);
+    	int dstSocketFD = lookupSocket(dstHandle);
+
+    	if (dstSocketFD != -1) {
+            sendPDU(dstSocketFD, pdu, pduLen); // forwarding the PDU
+    	}
+    	if (dstSocketFD == -1) {
+            uint8_t errorBuffer[PDU_LEN_MAX];
+            int errorLen = handleOnlyPacket(errorBuffer, HANDLE_ERR_FLAG, dstHandle);
+            sendPDU(clientSocket, errorBuffer, errorLen); // telling sender of nonexistent handles
+    	}
+    }
 }
 
+/*-----------> flagHandleList <-----------*/
+void flagHandleList(int clientSocket) { 
 // send flag 11 with table count, the one flag 12 per handle, then complete send with flag 13
-void flagHandleList(int clientSocket) {
 
+    uint32_t count = getHandleCount();
+    uint8_t buffer[PDU_LEN_MAX];
+    int len = listCountPacket(buffer, count);
+    sendPDU(clientSocket, buffer, len);
+
+    for (int i = 0; i < getTableCapacity(); i++) {
+	char handle[HANDLE_NAME_MAX + 1];
+	int sock; // unused, but for getHandleAt param requirement
+	if (getHandleAtIndex(i, handle, &sock) == 1) {
+	    len = handleOnlyPacket(buffer, HANDLE_ITEM_FLAG, handle);
+	    sendPDU(clientSocket, buffer, len);
+	}
+    }
+
+    len = chatHeaderPacket(buffer, HANDLE_FINISH_FLAG);
+    sendPDU(clientSocket, buffer, len);
 }
+
 /*-----------> checkArgs <-----------*/
 int checkArgs(int argc, char *argv[]) {
     // port # optional, if blank 0 is passed to kernel
