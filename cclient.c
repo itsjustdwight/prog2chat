@@ -16,6 +16,10 @@
 #include "chatFlags.h"
 #include "chatPacket.h"
 
+/*-----------> Global <-----------*/
+
+static char myHandle[HANDLE_NAME_MAX + 1];
+
 /*-----------> Function Prototypes <-----------*/
 
 void initConnectHandle(int socketNumber, const char *handle);
@@ -36,7 +40,8 @@ int main(int argc, char *argv[]) {
     int socketNumber = 0; // socket fd for connecting to the server
 
     checkArgs(argc, argv);
-
+    strncpy(myHandle, argv[1], HANDLE_NAME_MAX);
+    myHandle[HANDLE_NAME_MAX] = '\0';
     socketNumber = tcpClientSetup(argv[2], argv[3], 0); // connect to the server
     initConnectHandle(socketNumber, argv[1]);
     setupPollSet(); // initialize poll set before anything is added
@@ -99,59 +104,75 @@ void processStdin(int socketNumber) {
     sendLen = readFromStdin(buffer); // prompts user and fills buffer
     if (sendLen < 2) { // checking if enough args are given by user
 	printf("$: ");
+	return;
     }
 
     if (buffer[0] != '%') { // checking if first char of command is typped correctly
 	printf("Invalid command\n");
 	printf("$: ");
+	return;
     }
 
-    int inputCommand = toLower(buffer[1]); // specifying the command user inputs, generalizing to lowercase
+    int inputCommand = tolower(buffer[1]); // specifying the command user inputs, generalizing to lowercase
 
-    switch inputCommand:
+    switch (inputCommand):
 	case 'b':
-	    sendBroadcast(int socketNumber, uint8_t *buffer, int len);
+	    sendBroadcast(socketNumber, buffer, sendLen);
+	    break;
 	case 'm':
-	    sendUnicast(int socketNumber, uint8_t *buffer, int len);
+	    sendUnicast(socketNumber, buffer, sendLen);
+	    break;
 	case 'c':
-	    sendMulticast(int socketNumber, uint8_t *buffer, int len);
+	    sendMulticast(socketNumber, buffer, sendLen);
+	    break;
 	case 'l':
-	    sendHandleList(int socketNumber);
+	    sendHandleList(socketNumber);
+	    break;
 	default:
 	    printf("Invalid command\n");
+	    break;
 
     printf("$: ");
-    sendPDU(socketNumber, buffer, sendLen); // one send() of full PDU
 }
 
 /*-----------> sendBroadcast <-----------*/
 void sendBroadcast(int socketNumber, uint8_t *buffer, int len) {
+    
+}
+
+/*-----------> sendUnicast <-----------*/
+void sendUnicast(int socketNumber, uint8_t *buffer, int len) {
     int offset = 2; // setting offset to immediately get to dst-handle from command
-    if (isspace(buffer[offset]) == '\n') {
-	printf("Invalid command format\n");	
+    if (buffer[offset] == '\n') {
+        printf("Invalid command format\n");
+	return;
     }
 
     char dstHandle[101];
     int dstLen = 0;
-    while (!isspace(buffer[offset]) && buffer[offset] != NULL) {
-	dstHandle[dstLen++] = line[offset++];
-	if (dstLen > 100) {
-	    printf("Invalid command format\n");
-	}
+    while (!isspace(buffer[offset]) && buffer[offset] != '\0') {
+        dstHandle[dstLen++] = buffer[offset++];
+        if (dstLen > 100) {
+            printf("Invalid command format\n");
+	    return;
+        }
     }
 
     dstHandle[dstLen] = '\0';
 
     if (dstLen == 0) {
-	printf("Invalide command format\n");
+        printf("Invalid command format\n");
+	return;
     }
 
-    isspace(buffer[offset]);
+    while (isspace(buffer[offset])) {
+	offset++;
+    }
 
     char *text = &buffer[offset];
     int totalTextLen = len - offset;
     if (totalTextLen <= 0) {
-	totalTextLen = 1;
+        totalTextLen = 1;
     }
 
     const char *dsts[1] = { dstHandle };
@@ -161,23 +182,18 @@ void sendBroadcast(int socketNumber, uint8_t *buffer, int len) {
     char textChunkBuffer[TEXT_LEN_MAX];
 
     while (sent < totalTextLen) {
-	int remaining = totalTextLen - sent;
-	int chunkSize = min(remining, TEXT_DATA_CHUNK)
+        int remaining = totalTextLen - sent;
+        int chunkSize = (remaining < TEXT_DATA_CHUNK) ? remaining : TEXT_DATA_CHUNK;
 
-	memcpy(textChunkBuffer, text + sent, chunkSize);
-	textChunkBuffer[chunkSize] = '\0';
+        memcpy(textChunkBuffer, text + sent, chunkSize);
+        textChunkBuffer[chunkSize] = '\0';
 
-	int packetLen = messagePacket(pduBuffer, UNITCAST_FLAG, myHandle, dsts,
-				      1, textChunkBuffer, chunkSize + 1);
-	sendPDU(socketNumber, pduBuffer, packetLen);
-
+        int packetLen = messagePacket(pduBuffer, UNICAST_FLAG, myHandle, dsts,
+                                      1, textChunkBuffer, chunkSize + 1);
+        sendPDU(socketNumber, pduBuffer, packetLen);
+        
 	sent += chunkSize;
     }
-}
-
-/*-----------> sendUnicast <-----------*/
-void sendUnicast(int socketNumber, uint8_t *buffer, int len) {
-
 }
 
 /*-----------> sendMulticast <-----------*/
