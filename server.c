@@ -137,7 +137,13 @@ void flagConnect(uint8_t *pdu, int pduLen, int clientSocket) {
 /*-----------> flagBroadcast <-----------*/
 void flagBroadcast(uint8_t *pdu, int pduLen, int clientSocket) {
 // send untouched PDU to all clients except for the sending client
-
+    for (int i = 0; i < getTableCapacity(); i++) {
+	char handle[HANDLE_NAME_MAX + 1];
+	int sock;
+	if (getHandleAtIndex(i, handle, &sock) == 1) {
+	    if (sock != clientSocket) sendPDU(sock, pdu, pduLen);
+	}
+    }
 }
 
 /*-----------> flagUnicast <-----------*/

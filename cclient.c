@@ -88,6 +88,7 @@ void initConnectHandle(int socketNumber, const char *handle) {
     printf("Unexpected server response\n");
     exit(0);   
 }
+
 /*-----------> clientControl <-----------*/
 void clientControl(int socketNumber) {
     int readyFD = 0; // fd's that are returned by pollCall for the sockets with data ready
@@ -144,7 +145,41 @@ void processStdin(int socketNumber) {
 
 /*-----------> sendBroadcast <-----------*/
 void sendBroadcast(int socketNumber, uint8_t *buffer, int len) {
-    
+    int offset = 2;
+    while (isspace(buffer[offset])) {
+	offset++;
+    }   
+
+    const char *text = (const char *)&buffer[offset];
+    int totalTextLen = len - offset - 1;
+    if (totalTextLen < 0) {
+	totalTextLen = 0;
+    }
+
+    uint8_t pduBuffer[PDU_LEN_MAX];
+
+    if (totalTextLen <= 0) {
+	char emptyBuffer[1] = {'\0'};
+	int packetLen = broadcastPacket(pduBuffer, myHandle, emptyBuffer, 1);
+	sendPDU(socketNumber, pduBuffer, packetLen);
+	return;
+    }
+
+    int sent = 0;
+    char textChunkBuffer[TEXT_LEN_MAX];
+
+    while (sent < totalTextLen) {
+	int remaining = totalTextLen - sent;
+	int chunkSize = (remaining < TEXT_DATA_CHUNK) ? remaining : TEXT_DATA_CHUNK;
+
+	memcpy(textChunkBuffer, text + sent, chunkSize);
+	textChunkBuffer[chunkSize] = '\0';
+
+	int packetLen = broadcastPacket(pduBuffer, myHandle, textChunkBuffer, chunkSize + 1);
+	sendPDU(socketNumber, pduBuffer, packetLen);
+
+	sent += chunkSize;
+    }
 }
 
 /*-----------> sendUnicast <-----------*/
@@ -220,13 +255,13 @@ void sendMulticast(int socketNumber, uint8_t *buffer, int len) {
 	offset++;
     }
     if (buffer[offset] == '\0') {
-	pirntf("Invalid command format\n");
+	printf("Invalid command format\n");
 	return;
     }
 
     char countStr[8]; // small buffer because count is one digit
     int countLen = 0;
-    while (isspace(buffer[offset]) && buffer[offset] != '\0') {
+    while (!isspace(buffer[offset]) && buffer[offset] != '\0') {
 	countStr[countLen++] = buffer[offset++];
 	if (countLen > 6) {
 	    printf("Invalid command format\n");
@@ -245,35 +280,38 @@ void sendMulticast(int socketNumber, uint8_t *buffer, int len) {
     char dstHandles[HANDLES_MAX][HANDLE_NAME_MAX + 1];
     const char *dstPointers[HANDLES_MAX]; // array of pointer specifically for messagePacket()
 
-    while (isspace(buffer[offset])) {
-	offset++;
-    }
-    if (buffer[offset] == '\0') {
-	printf("Invalid command format\n");
-	return;
-    }
-
-    int dstLen = 0;
-    while (!isspace(buffer[offset]) && buffer[offset] != '\0') {
-	dstHandles[i][dstLen++] = buffer[offset++];
-	if (dstLen > HANDLE_NAME_MAX) {
+    for (int i = 0; i < numOfDst; i++) {
+    	while (isspace(buffer[offset])) {
+	    offset++;
+    	}
+    	if (buffer[offset] == '\0') {
 	    printf("Invalid command format\n");
 	    return;
-	}
+    	}
+
+    	int dstLen = 0;
+    	while (!isspace(buffer[offset]) && buffer[offset] != '\0') {
+	    dstHandles[i][dstLen++] = buffer[offset++];
+	    if (dstLen > HANDLE_NAME_MAX) {
+	    	printf("Invalid command format\n");
+	    	return;
+	    }
+    	}
+
+    	dstHandles[i][dstLen] = '\0';
+
+    	if (dstLen == 0) {
+	    printf("Invalid command format\n");
+	    return;
+    	}
+
+    	dstPointers[i] = dstHandles[i];
     }
 
-    dstHandles[i][dstLen] = '\0';
-
-    if (dstLen == 0) {
-	printf("Invalid command format\n");
-	return;
-    }
-
-    dstPointers[i] = dstHandles[i];
-
-    while (isspace(buffer[offset])) {
+    while (isspace(buffer[offset])) { // skipping whitespace before text
 	offset++;
     }
+
     const char *text = (const char *)&buffer[offset];
     int totalTextLen = len - offset - 1;
     if (totalTextLen < 0) {
@@ -281,6 +319,7 @@ void sendMulticast(int socketNumber, uint8_t *buffer, int len) {
     }
 
     uint8_t pduBuffer[PDU_LEN_MAX];
+
     if (totalTextLen <= 0) {
 	char emptyBuffer[1] = {'\0'};
 	int packetLen = messagePacket(pduBuffer, MULTICAST_FLAG, myHandle,
@@ -354,7 +393,12 @@ void processMsgFromServer(int socketNumber) {
 /*-----------> flagBroadcastRecv <-----------*/
 
 void flagBroadcastRecv(uint8_t *pdu, int pduLen) {
+    char srcHandle[HANDLE_NAME_MAX + 1];
+    int offset = 1;
+    offset = getHandleAt(pdu, offset, srcHandle);
 
+    const char *text = (const char *)(pdu + offset);
+    printf("\n%s: %s\n", srcHandle, text);
 }
 
 /*-----------> flagUnicastRecv <-----------*/
